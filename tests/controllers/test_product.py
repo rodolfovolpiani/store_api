@@ -23,6 +23,12 @@ async def test_controller_create_should_return_success(client, products_url):
     }
 
 
+async def test_controller_create_should_return_fail(client, products_url):
+    response = await client.post(products_url, json={})
+
+    # assert
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
 async def test_controller_get_should_return_success(
     client, products_url, product_inserted
 ):
@@ -64,6 +70,7 @@ async def test_controller_query_should_return_success(client, products_url):
 async def test_controller_patch_should_return_success(
     client, products_url, product_inserted
 ):
+
     response = await client.patch(
         f"{products_url}{product_inserted.id}", json={"price": "7.500"}
     )
@@ -80,6 +87,18 @@ async def test_controller_patch_should_return_success(
         "quantity": 10,
         "price": "7.500",
         "status": True,
+    }
+
+async def test_controller_patch_should_return_not_found(client, products_url, product_inserted):
+    uuid_generated = "6fa75875-b0fa-41b1-b928-342a81400712"
+    response = await client.patch(
+        f"{products_url}{uuid_generated}", json={"price": "15.5000"}
+    )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    assert response.json() == {
+        "detail": f"Product not found with filter: {uuid_generated}"
     }
 
 

@@ -5,7 +5,7 @@ import pymongo
 from store.db.mongo import db_client
 from store.models.product import ProductModel
 from store.schemas.product import ProductIn, ProductOut, ProductUpdate, ProductUpdateOut
-from store.core.exceptions import NotFoundException
+from store.core.exceptions import NotFoundException, NotInsertedException
 
 
 class ProductUsecase:
@@ -16,6 +16,13 @@ class ProductUsecase:
 
     async def create(self, body: ProductIn) -> ProductOut:
         product_model = ProductModel(**body.model_dump())
+
+        if product_model.name == "":
+            raise NotInsertedException(message="É necessario informar o name.")
+
+        if product_model.quantity < 0:
+            raise NotInsertedException(message="A quantidade informada nao deve ser menor que 0.")
+        
         await self.collection.insert_one(product_model.model_dump())
 
         return ProductOut(**product_model.model_dump())
@@ -32,13 +39,22 @@ class ProductUsecase:
         return [ProductOut(**item) async for item in self.collection.find()]
 
     async def update(self, id: UUID, body: ProductUpdate) -> ProductUpdateOut:
+        product = await self.collection.find_one({"id": id})
+
+        if not product:
+            raise NotFoundException(message=f"Product not found with filter: {id}")
+        
+        
         result = await self.collection.find_one_and_update(
             filter={"id": id},
-            update={"$set": body.model_dump(exclude_none=True)},
+            update={"$set": body.model_dump(exclude_none=True), "$currentDate": {"updated_at": {"$type": "date"}} },            
             return_document=pymongo.ReturnDocument.AFTER,
         )
 
-        return ProductUpdateOut(**result)
+        if result:
+            return ProductUpdateOut(**result)
+        
+        return None
 
     async def delete(self, id: UUID) -> bool:
         product = await self.collection.find_one({"id": id})
